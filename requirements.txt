@@ -1,0 +1,19 @@
+# Python 3.11
+numpy==2.4.6
+polars==1.44.2
+polars-runtime-32==1.44.2
+pyarrow==25.0.1
+scipy==1.17.1
+scikit-learn==1.9.1
+lightgbm==4.7.0
+RapidFuzz==3.14.6
+Unidecode==1.4.0
+# GPU sparse retrieval (CUDA build; CPU works but is much slower)
+torch==2.14.0
+# cross-encoders (XLM-RoBERTa base/large and mDeBERTa-v3-base, MIT licence, 278M/560M/279M parameters;
+# pretrained weights downloaded from the Hugging Face hub, fine-tuned on the training pairs)
+transformers==4.56.2
+tokenizers==0.22.2
+sentencepiece==0.2.2
+safetensors==0.8.0
+protobuf==7.36.2       # mDeBERTa-v3 fast-tokenizer conversion

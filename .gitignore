@@ -1,0 +1,21 @@
+# competition data, intermediate files and outputs are not part of the repository
+data/
+dataset/
+student_resource/
+work/
+output/
+repro_output/
+models/
+*.tsv
+*.parquet
+*.npz
+*.lgb
+*.zip
+*.safetensors
+*.bin
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
