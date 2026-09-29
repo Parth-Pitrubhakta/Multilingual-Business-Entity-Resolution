@@ -115,3 +115,15 @@ of them changes the results, which was verified in a fresh-environment reproduct
 Full determinism fixes (torch seeds, sorted sampling, deterministic LightGBM) and a one-command, resumable Python
 runner are on the `vaishnavi` branch.
 
+## Verify the output files
+
+`src/verify_outputs.py` checks both output files against the challenge format:
+* the header, and one row per test entity;
+* valid IDs with no duplicates;
+* every match inside the candidate set.
+
+With `--reference_dir`, it also compares them pair by pair with reference files.
+
+```bash
+python src/verify_outputs.py --output_dir /path/to/output --data_dir /path/to/dataset [--reference_dir /path/to/reference]
+```
