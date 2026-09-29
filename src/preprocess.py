@@ -36,7 +36,7 @@ def _work(chunk):
     return out
 
 
-def normalize_frame(df: pl.DataFrame, translit_path: str, procs: int = 128, chunk: int = 20000) -> pl.DataFrame:
+def normalize_frame(df: pl.DataFrame, translit_path: str, procs: int = min(128, os.cpu_count() or 1), chunk: int = 20000) -> pl.DataFrame:
     names = df["business_name"].to_list()
     addrs = df["business_address"].to_list()
     ctry = df["country"].to_list()

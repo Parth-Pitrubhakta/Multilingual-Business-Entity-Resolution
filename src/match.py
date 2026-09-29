@@ -29,7 +29,7 @@ from stage1 import S1_FEATS, fold_of
 CAND_THR = float(os.environ.get("CAND_THR", "0.02"))
 CAND_TOPK = int(os.environ.get("CAND_TOPK", "3"))
 MODEL_TAG = os.environ.get("MODEL_TAG", "")        # prefix of model / threshold / score files (e.g. "full_", "vf_")
-TOKSTATS = os.environ.get("TOKSTATS", "1") == "1"  # label-free token house-number statistics (v10 features)   # each record matches at most one S1: keep its best few
+TOKSTATS = os.environ.get("TOKSTATS", "1") == "1"  # label-free token house-number statistics (v10 features)
 
 
 def select_candidates(st: pl.DataFrame) -> pl.DataFrame:
@@ -39,7 +39,7 @@ def select_candidates(st: pl.DataFrame) -> pl.DataFrame:
 NFOLD = 5
 LGB_PARAMS = dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=100,
                   feature_fraction=0.7, bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0,
-                  num_threads=160, verbose=-1)
+                  num_threads=160, verbose=-1, deterministic=True, force_row_wise=True)
 
 
 def candidates(split: str) -> pl.DataFrame:
@@ -76,7 +76,7 @@ def build_features(split: str) -> pl.DataFrame:
     else:
         f = pair_features(c.select(keep_cols), norm)
     f = f.join(name_frequency(norm, "rec_id", "fq2"), on="rec_id", how="left")
-    f = f.join(name_frequency(norm, "s1_id", "fq1"), on="s1_id", how="left")
+    f = f.join(name_frequency(norm, "s1_id", "fq1"), on="s1_id", how="left").sort(["rec_id", "s1_id"])
     f.write_parquet(path)
     print(split, "features", f.shape)
     return f

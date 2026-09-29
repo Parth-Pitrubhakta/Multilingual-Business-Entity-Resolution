@@ -75,8 +75,3 @@ if __name__ == "__main__":
     m = learn()
     with open(cache("translit.json"), "w") as f:
         json.dump(m, f, ensure_ascii=False)
-    import random
-
-    random.seed(0)
-    for k in random.sample(list(m), 40):
-        print(k, "->", m[k], "   [unidecode:", unidecode(k), "]")

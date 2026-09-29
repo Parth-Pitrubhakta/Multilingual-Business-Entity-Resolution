@@ -41,7 +41,7 @@ def main(split="test", thr=None):
     s1c = read_source(split, 1).select(pl.col("entity_id").alias("s1_id"), "country")
     sc = scores.join(s1c, on="s1_id", how="left").with_columns(
         pl.when(pl.col("country").is_in(list(seen))).then(pl.lit(thr)).otherwise(pl.lit(thr_u)).alias("_t"))
-    best = sc.filter(pl.col("p3") == pl.col("p3").max().over("rec_id")).unique("rec_id", keep="first")
+    best = sc.filter(pl.col("p3") == pl.col("p3").max().over("rec_id")).sort(["rec_id", "s1_id"]).unique("rec_id", keep="first")
     matches = best.filter(pl.col("p3") >= pl.col("_t")).select("s1_id", "rec_id", "p3")
     matches = matches.sort(["s1_id", "p3"], descending=[False, True])
     os.makedirs(OUTPUT_DIR, exist_ok=True)

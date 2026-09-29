@@ -32,6 +32,7 @@ from sklearn.feature_extraction import FeatureHasher
 from common import cache
 
 N_FEATURES = 1 << 22
+NPROC = min(128, os.cpu_count() or 1)
 
 
 def _grams(tok: str, n: int = 3):
@@ -78,7 +79,7 @@ def _hash_chunk(args):
     return fh.transform(rows).tocsr().astype(np.float32)
 
 
-def hash_view(df: pl.DataFrame, kind: str, procs: int = 128, chunk: int = 50000) -> sp.csr_matrix:
+def hash_view(df: pl.DataFrame, kind: str, procs: int = NPROC, chunk: int = 50000) -> sp.csr_matrix:
     if kind == "name":
         cols = [df[c].fill_null("").to_list() for c in ("n_core", "n_web", "n_skel")]
     else:
@@ -170,7 +171,9 @@ def _compress_cols(D: sp.csr_matrix, Q: sp.csr_matrix):
     return D2, Q2
 
 
-def retrieve(split: str, k: int = 10, batch: int = 1024, gpus=(0, 1, 2, 3)):
+def retrieve(split: str, k: int = 10, batch: int = 1024, gpus=None):
+    # physical GPU ids, one retrieval shard per GPU (run_pipeline.py sets BER_GPUS)
+    gpus = gpus or [int(g) for g in os.environ.get("BER_GPUS", "0,1,2,3").split(",") if g != ""]
     df = pl.read_parquet(cache(f"{split}_norm.parquet")).with_row_index("row")
     print("hashing views ...", flush=True)
     Xn = hash_view(df, "name")
@@ -234,6 +237,7 @@ def retrieve(split: str, k: int = 10, batch: int = 1024, gpus=(0, 1, 2, 3)):
         pl.when(pl.col("view") == 1).then(pl.col("rank")).min().fill_null(999).alias("rk_n"),
         pl.when(pl.col("view") == 2).then(pl.col("rank")).min().fill_null(999).alias("rk_a"),
     )
+    agg = agg.sort(["rec_id", "s1_id"])  # deterministic row order for everything downstream
     path = cache(f"{split}_retrieval.parquet")
     agg.write_parquet(path)
     print("retrieval pairs:", agg.shape, "->", path)

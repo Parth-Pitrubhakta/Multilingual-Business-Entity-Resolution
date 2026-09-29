@@ -58,6 +58,7 @@ def prep(pos_per_neg: float = 1.0):
     oof = pl.read_parquet(cache("train_oof.parquet"), columns=["rec_id", "s1_id", "p2"])
     pairs = pairs.join(oof, on=["rec_id", "s1_id"], how="left")
     pairs = pairs.join(tx.rename({"entity_id": "s1_id", "t": "a"}), on="s1_id").join(tx.rename({"entity_id": "rec_id", "t": "b"}), on="rec_id")
+    pairs = pairs.sort(["rec_id", "s1_id"])  # deterministic order for the sampling below
     pairs.select("rec_id", "s1_id", "y", "half", "a", "b").write_parquet(os.path.join(CE_DIR, "infer_train.parquet"))
     rng = np.random.default_rng(0)
     for m in (0, 1):
@@ -108,6 +109,7 @@ def train(m: int, epochs: float = 1.0, bs: int = 256, lr: float = 4e-5):
     from torch.nn.parallel import DistributedDataParallel as DDP
     from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
     dist, rank, world, local = _dist()
+    torch.manual_seed(1000 + m)  # classification-head initialisation and dropout
     df = pl.read_parquet(os.path.join(CE_DIR, f"train_{m}.parquet"))
     n = (df.height // world) * world
     sh = df.slice(0, n)[rank::world]

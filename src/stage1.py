@@ -8,6 +8,7 @@ keep pairs above a low probability threshold (plus at most `max_per_rec`
 per record). The surviving pairs are the final candidate set that the
 matching model runs inference over (= candidate_pairs.tsv).
 """
+import os
 import sys
 
 import lightgbm as lgb
@@ -15,6 +16,8 @@ import numpy as np
 import polars as pl
 
 from common import cache, read_ground_truth
+
+THREADS = int(os.environ.get("LGB_THREADS", "160"))
 
 S1_FEATS = ["cos_n", "cos_a", "cos_c", "rk_c", "rk_n", "rk_a", "rec_ncand", "rec_max_c", "gap_c", "gap2_c",
             "rec_max_n", "gap_n", "rec_max_a", "gap_a", "rk_rec_c", "s1_nrec", "s1_top1", "s1_rank_c",
@@ -28,7 +31,7 @@ def fold_of(col: str = "s1_id", k: int = 5):
 
 def build(split: str) -> pl.DataFrame:
     r = pl.read_parquet(cache(f"{split}_retrieval.parquet"))
-    return build_frame(r, pl.read_parquet(cache(f"{split}_norm.parquet"), columns=NORM1))
+    return build_frame(r, pl.read_parquet(cache(f"{split}_norm.parquet"), columns=NORM1)).sort(["rec_id", "s1_id"])
 
 
 NORM1 = ["entity_id", "src", "a_tok", "n_nonlatin", "n_isweb", "n_core", "a_comps"]
@@ -132,11 +135,12 @@ def train(max_rows: int = 60_000_000):
         tr = tr.sample(max_rows, seed=0)
     ds = lgb.Dataset(tr.select(S1_FEATS).to_numpy().astype(np.float32), tr["y"].to_numpy())
     params = dict(objective="binary", learning_rate=0.1, num_leaves=127, min_data_in_leaf=200,
-                  feature_fraction=0.9, bagging_fraction=0.8, bagging_freq=1, num_threads=160, verbose=-1)
+                  feature_fraction=0.9, bagging_fraction=0.8, bagging_freq=1, num_threads=THREADS, verbose=-1,
+                  deterministic=True, force_row_wise=True)
     model = lgb.train(params, ds, num_boost_round=400)
     model.save_model(cache("stage1.lgb"))
     r = r.with_columns(pl.Series("p1", model.predict(r.select(S1_FEATS).to_numpy().astype(np.float32),
-                                                     num_threads=160)).cast(pl.Float32))
+                                                     num_threads=THREADS)).cast(pl.Float32))
     r.select("rec_id", "s1_id", "p1", "y", "fold", *S1_FEATS).write_parquet(cache("train_stage1.parquet"))
     report(r, gt)
 
@@ -158,7 +162,7 @@ def predict(split: str) -> pl.DataFrame:
     r = build(split)
     model = lgb.Booster(model_file=cache("stage1.lgb"))
     r = r.with_columns(pl.Series("p1", model.predict(r.select(S1_FEATS).to_numpy().astype(np.float32),
-                                                     num_threads=160)).cast(pl.Float32))
+                                                     num_threads=THREADS)).cast(pl.Float32))
     r.select("rec_id", "s1_id", "p1", *S1_FEATS).write_parquet(cache(f"{split}_stage1.parquet"))
     return r
 

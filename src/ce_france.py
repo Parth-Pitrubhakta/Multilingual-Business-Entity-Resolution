@@ -58,7 +58,7 @@ def prep(sub_path, n_train_keep=150_000, seed=0):
                          (pl.col("s1_id").hash(seed=77) % 2).alias("half"))
     cols = ["entity_id", "business_name", "business_address"]
     tx = _texts(pl.read_parquet(cache("test_norm.parquet"), columns=cols))
-    te = te.join(tx.rename({"entity_id": "s1_id", "t": "a"}), on="s1_id").join(tx.rename({"entity_id": "rec_id", "t": "b"}), on="rec_id")
+    te = te.join(tx.rename({"entity_id": "s1_id", "t": "a"}), on="s1_id").join(tx.rename({"entity_id": "rec_id", "t": "b"}), on="rec_id").sort(["rec_id", "s1_id"])
     te.select("rec_id", "s1_id", "half", "a", "b").write_parquet(os.path.join(CE_DIR, "infer_fr.parquet"))
     lab = te.filter(pl.col("y").is_not_null())
     print(f"French pairs {te.height}: positives {lab['y'].sum()}, negatives {(lab['y'] == 0).sum()}, unlabeled {te.height - lab.height}", flush=True)
@@ -66,7 +66,7 @@ def prep(sub_path, n_train_keep=150_000, seed=0):
         h = lab.filter(pl.col("half") == m)
         pos, ng = h.filter(pl.col("y") == 1), h.filter(pl.col("y") == 0)
         hard = pos.filter((pl.min_horizontal(pl.col("p8").fill_null(0), pl.col("p10").fill_null(0)) < 0.95))
-        easy = pos.join(hard.select("rec_id", "s1_id"), on=["rec_id", "s1_id"], how="anti")
+        easy = pos.join(hard.select("rec_id", "s1_id"), on=["rec_id", "s1_id"], how="anti").sort(["rec_id", "s1_id"])
         easy = easy.sample(min(easy.height, max(0, int(1.5 * ng.height) - hard.height)), seed=seed + m)
         orig = pl.read_parquet(cache(f"ce/train_{m}.parquet"))
         orig = orig.sample(min(n_train_keep, orig.height), seed=seed + m)
